@@ -1,0 +1,238 @@
+# Flood Detection System
+
+
+import RPi.GPIO as GPIO
+import time
+
+# LCD Pin Consider
+RS = 13
+EN = 12
+D4 = 11
+D5 = 10
+D6 = 9
+D7 = 8
+
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(RS, GPIO.OUT)
+GPIO.setup(EN, GPIO.OUT)
+GPIO.setup(D4, GPIO.OUT)
+GPIO.setup(D5, GPIO.OUT)
+GPIO.setup(D6, GPIO.OUT)
+GPIO.setup(D7, GPIO.OUT)
+
+trig = 7
+echo = 6
+red = 5
+blue = 4
+green = 3
+buz = 2
+
+GPIO.setup(trig, GPIO.OUT)
+GPIO.setup(echo, GPIO.IN)
+GPIO.setup(red, GPIO.OUT)
+GPIO.setup(blue, GPIO.OUT)
+GPIO.setup(green, GPIO.OUT)
+GPIO.setup(buz, GPIO.OUT)
+
+def send_command(command):
+    GPIO.output(RS, GPIO.LOW)
+    GPIO.output(D4, GPIO.LOW)
+    GPIO.output(D5, GPIO.LOW)
+    GPIO.output(D6, GPIO.LOW)
+    GPIO.output(D7, GPIO.LOW)
+    for i in range(4):
+        if command & (1 << i):
+            GPIO.output(D4+i, GPIO.HIGH)
+    GPIO.output(EN, GPIO.HIGH)
+    time.sleep(0.01)
+    GPIO.output(EN, GPIO.LOW)
+    time.sleep(0.01)
+
+def send_data(data):
+    GPIO.output(RS, GPIO.HIGH)
+    GPIO.output(D4, GPIO.LOW)
+    GPIO.output(D5, GPIO.LOW)
+    GPIO.output(D6, GPIO.LOW)
+    GPIO.output(D7, GPIO.LOW)
+    for i in range(4):
+        if data & (1 << i):
+            GPIO.output(D4+i, GPIO.HIGH)
+    GPIO.output(EN, GPIO.HIGH)
+    time.sleep(0.01)
+    GPIO.output(EN, GPIO.LOW)
+    time.sleep(0.01)
+
+def lcd_init():
+    send_command(0x33)
+    send_command(0x32)
+    send_command(0x28)
+    send_command(0x0C)
+    send_command(0x06)
+    send_command(0x01)
+    time.sleep(0.01)
+
+def lcd_string(message, line):
+    message = message.ljust(16, " ")
+    send_command(line)
+    for i in range(16):
+        send_data(ord(message[i]))
+
+def distance_measurement():
+    GPIO.output(trig, GPIO.LOW)
+    time.sleep(0.01)
+    GPIO.output(trig, GPIO.HIGH)
+    time.sleep(0.00001)
+    GPIO.output(trig, GPIO.LOW)
+    while GPIO.input(echo) == 0:
+        pulse_start = time.time()
+    while GPIO.input(echo) == 1:
+        pulse_end = time.time()
+    pulse_duration = pulse_end - pulse_start
+    distance = pulse_duration * 17150
+    distance = round(distance, 2)
+    return distance
+
+def setup():
+    lcd_init()
+    lcd_string("Flood Detection", 0x80)
+    lcd_string("System", 0xC0)
+    time.sleep(2)
+
+def loop():
+    while True:
+        distance = distance_measurement()
+        if distance < 10:
+            GPIO.output(red, GPIO.HIGH)
+            GPIO.output(blue, GPIO.LOW)
+            GPIO.output(green, GPIO.LOW)
+            GPIO.output(buz, GPIO.HIGH)
+            lcd_string("Flood Detected!", 0x80)
+            lcd_string("Distance: {} cm".format(distance), 0xC0)
+        else:
+            GPIO.output(red, GPIO.LOW)
+            GPIO.output(blue, GPIO.HIGH)
+            GPIO.output(green, GPIO.HIGH)
+            GPIO.output(buz, GPIO.LOW)
+            lcd_string("No Flood", 0x80)
+            lcd_string("Distance: {} cm".format(distance), 0xC0)
+        time.sleep(1)
+
+if __name__ == '__main__':
+    try:
+        setup()
+        loop()
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+# Import necessary libraries
+import RPi.GPIO as GPIO
+import time
+import smbus
+import math
+
+# Define pin numbers
+red = 17
+blue = 18
+green = 27
+buz = 22
+trig = 23
+echo = 24
+
+# Set pin modes
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(red, GPIO.OUT)
+GPIO.setup(blue, GPIO.OUT)
+GPIO.setup(green, GPIO.OUT)
+GPIO.setup(buz, GPIO.OUT)
+GPIO.setup(trig, GPIO.OUT)
+GPIO.setup(echo, GPIO.IN)
+
+# Initialize LCD
+bus = smbus.SMBus(1)
+address = 0x27
+lcd_columns = 16
+lcd_rows = 2
+
+def lcd_init():
+    # Initialise display
+    bus.write_byte_data(address, 0x00, 0x38)
+    time.sleep(0.005)
+    bus.write_byte_data(address, 0x00, 0x0C)
+    time.sleep(0.005)
+    bus.write_byte_data(address, 0x00, 0x01)
+    time.sleep(0.005)
+
+def lcd_byte(bits, mode):
+    # Send byte to data pins
+    # bits = the data
+    # mode = 1 for data, 0 for command
+    bits_high = mode | (bits & 0xF0) | 0x08
+    bits_low = mode | ((bits << 4) & 0xF0) | 0x08
+    bus.write_byte_data(address, 0x00, bits_high)
+    lcd_toggle_enable(bits_high)
+    bus.write_byte_data(address, 0x00, bits_low)
+    lcd_toggle_enable(bits_low)
+
+def lcd_toggle_enable(bits):
+    # Toggle enable
+    time.sleep(0.0005)
+    bus.write_byte_data(address, 0x00, (bits | 0x04))
+    time.sleep(0.0005)
+    bus.write_byte_data(address, 0x00, (bits & ~0x04))
+    time.sleep(0.0005)
+
+def lcd_string(message, line):
+    # Send string to display
+    message = message.ljust(lcd_columns, " ")
+    lcd_byte(line, 0x80)
+    for i in range(lcd_columns):
+        lcd_byte(ord(message[i]), 0x01)
+
+# Initialize LCD
+lcd_init()
+
+# Main loop
+while True:
+    GPIO.output(trig, GPIO.LOW)
+    GPIO.output(trig, GPIO.HIGH)
+    time.sleep(0.00001)
+    GPIO.output(trig, GPIO.LOW)
+  
+    pulse_start = time.time()
+    pulse_end = time.time()
+  
+    while GPIO.input(echo) == GPIO.LOW:
+        pulse_start = time.time()
+  
+    while GPIO.input(echo) == GPIO.HIGH:
+        pulse_end = time.time()
+  
+    pulse_duration = pulse_end - pulse_start
+    distance = pulse_duration * 17150
+    distance = round(distance, 2)
+  
+    lcd_string("Distance: " + str(distance) + "cm", 0x80)
+if distance > 200:
+    lcd.setCursor(3, 1)  # set Cursor
+    lcd.print("Safe Zone  ")  # Print distance On LCD
+    digitalWrite(red, LOW)
+    digitalWrite(green, HIGH)  # Program For Green LED
+    digitalWrite(blue, LOW)
+    digitalWrite(buz, LOW)  # Buzzer OFF
+    delay(1000)
+
+elif distance > 200 and distance < 150:
+    lcd.setCursor(3, 1)  # set Cursor
+    lcd.print("Medium Zone")  # Print distance On LCD
+    digitalWrite(red, HIGH)  # Program For Yellow LED
+    digitalWrite(green, HIGH)
+    digitalWrite(blue, LOW)
+    digitalWrite(buz, LOW)  # Buzzer OFF
+    delay(1000)
+
+elif distance < 100:
+    lcd.setCursor(3, 1)  # set Cursor
+    lcd.print("Danger Zone")  # Print distance On LCD
+    digitalWrite(red, HIGH)  # Program For RED LED
+    digitalWrite(green, LOW)
+    digitalWrite(blue, LOW)
+    digitalWrite(buz, HIGH)  # Buzzer On

@@ -1,0 +1,82 @@
+// Flood Detection System
+
+
+#include <LiquidCrystal.h> 
+
+// LiquidCrystal(RS, EN, D4, D5, D6, D7);
+
+LiquidCrystal lcd(13, 12, 11, 10,  9, 8); // LCD Pin Consider
+int trig = 7;
+int echo = 6;
+int red = 5;
+int blue = 4;
+int green = 3;
+int buz = 2;
+int distance;
+long duration;
+
+void setup()
+{
+ pinMode(red,OUTPUT);
+ pinMode(blue,OUTPUT);
+ pinMode(green,OUTPUT); // For Led
+  
+ pinMode(buz,OUTPUT); // For Buzzer
+  
+ pinMode(trig,OUTPUT); // For Ultrasonic Sensor
+ pinMode(echo,INPUT);
+ Serial.begin(9600);
+  
+ lcd.begin(16,2); // LCD Initialization 16*2
+ lcd.setCursor(1,0);
+ lcd.print("Distance:");
+}
+
+void loop()
+{
+ digitalWrite(trig,LOW);
+ digitalWrite(trig,HIGH); // sending High TO Low Pulse 
+ delayMicroseconds(10);   // Delay Of 10 Micro-seconds
+ digitalWrite(trig,LOW);
+  
+ float duration = pulseIn(echo,HIGH); // Read Time 
+ // Distance = speed * Time
+ float distance = (0.0343 * duration)/2 ; // Formulae for Measuring distance From Ultra Sonic Sensor
+ 
+ lcd.setCursor(10,0); // set Cursor On Row 0 And Coloum 10
+ lcd.print(distance); // Print distance On LCD
+  
+  if(distance>200)
+  { 
+   lcd.setCursor(3,1); // set Cursor 
+   lcd.print("Safe Zone  "); // Print distance On LCD
+   digitalWrite(red,LOW);
+   digitalWrite(green,HIGH); // Program For Green LED
+   digitalWrite(blue,LOW);
+   digitalWrite(buz,LOW); // Buzzer OFF
+   delay(1000);
+  }
+    
+   else if(distance>200 && distance<150)
+  {
+   lcd.setCursor(3,1); // set Cursor 
+   lcd.print("Medium Zone"); // Print distance On LCD 
+   digitalWrite(red,HIGH);  // Program For Yellow LED
+   digitalWrite(green,HIGH);
+   digitalWrite(blue,LOW);
+   digitalWrite(buz,LOW); // Buzzer OFF
+   delay(1000);
+  }
+  
+  else if(distance<100)
+  {
+   lcd.setCursor(3,1); // set Cursor 
+   lcd.print("Danger Zone"); // Print distance On LCD 
+   digitalWrite(red,HIGH); // Program For RED LED
+   digitalWrite(green,LOW);
+   digitalWrite(blue,LOW);
+   digitalWrite(buz,HIGH); // Buzzer On
+  }
+  
+  
+}
